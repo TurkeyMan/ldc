@@ -195,7 +195,8 @@ public:
 /// Represents (very) special 'lvalues' for bit fields.
 class DBitFieldLValue : public DValue {
 public:
-  DBitFieldLValue(Type *t, llvm::Value *ptr, BitFieldDeclaration *bf);
+  DBitFieldLValue(Type *t, llvm::Value *ptr, unsigned alignment,
+                  BitFieldDeclaration *bf);
 
   DBitFieldLValue *isBitFieldLVal() override { return this; }
 
@@ -206,6 +207,7 @@ public:
   void store(llvm::Value *value);
 
 private:
+  const unsigned alignment; // of ptr
   BitFieldDeclaration *const bf;
   llvm::IntegerType *const intType; // covering all bytes from bf->offset to the
                                     // byte the highest bit is in

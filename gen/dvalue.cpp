@@ -143,7 +143,7 @@ DRValue *DLValue::getRVal() {
     return nullptr;
   }
 
-  LLValue *rval = DtoLoad(DtoMemType(type), val);
+  LLValue *rval = DtoLoad(DtoMemType(type), val, alignment);
 
   const auto ty = type->toBasetype()->ty;
   if (ty == TY::Tbool) {
@@ -186,8 +186,9 @@ DLValue *DSpecialRefValue::getLVal() {
 
 ////////////////////////////////////////////////////////////////////////////////
 
-DBitFieldLValue::DBitFieldLValue(Type *t, LLValue *ptr, BitFieldDeclaration *bf)
-    : DValue(t, ptr), bf(bf),
+DBitFieldLValue::DBitFieldLValue(Type *t, LLValue *ptr, unsigned alignment,
+                                 BitFieldDeclaration *bf)
+    : DValue(t, ptr), alignment(alignment), bf(bf),
       intType(LLIntegerType::get(
           gIR->context(), (bf->bitOffset + bf->fieldWidth + 7) / 8 * 8)) {
   assert(ptr->getType()->isPointerTy());
@@ -196,7 +197,7 @@ DBitFieldLValue::DBitFieldLValue(Type *t, LLValue *ptr, BitFieldDeclaration *bf)
 DRValue *DBitFieldLValue::getRVal() {
   const auto sizeInBits = intType->getBitWidth();
   const auto ptr = val;
-  LLValue *v = gIR->ir->CreateAlignedLoad(intType, ptr, llvm::MaybeAlign(1));
+  LLValue *v = gIR->ir->CreateAlignedLoad(intType, ptr, llvm::MaybeAlign(alignment));
   // TODO: byte-swap v for big-endian targets?
 
   if (dmd::isUnsigned(bf->type)) {
@@ -226,7 +227,7 @@ void DBitFieldLValue::store(LLValue *value) {
   const auto mask =
       llvm::APInt::getLowBitsSet(intType->getBitWidth(), bf->fieldWidth);
   const auto oldVal =
-      gIR->ir->CreateAlignedLoad(intType, ptr, llvm::MaybeAlign(1));
+      gIR->ir->CreateAlignedLoad(intType, ptr, llvm::MaybeAlign(alignment));
   // TODO: byte-swap oldVal for big-endian targets?
   const auto maskedOldVal =
       gIR->ir->CreateAnd(oldVal, ~(mask << bf->bitOffset));
@@ -238,7 +239,7 @@ void DBitFieldLValue::store(LLValue *value) {
 
   const auto newVal = gIR->ir->CreateOr(maskedOldVal, bfVal);
   // TODO: byte-swap newVal for big-endian targets?
-  gIR->ir->CreateAlignedStore(newVal, ptr, llvm::MaybeAlign(1));
+  gIR->ir->CreateAlignedStore(newVal, ptr, llvm::MaybeAlign(alignment));
 }
 
 DDcomputeLValue::DDcomputeLValue(Type *t, llvm::Type *llt, LLValue *v,
@@ -252,7 +253,7 @@ DRValue *DDcomputeLValue::getRVal() {
     return nullptr;
   }
 
-  LLValue *rval = DtoLoad(lltype, val);
+  LLValue *rval = DtoLoad(lltype, val, alignment);
   
   const auto ty = type->toBasetype()->ty;
   if (ty == TY::Tbool) {

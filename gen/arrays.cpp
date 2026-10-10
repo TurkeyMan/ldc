@@ -51,7 +51,8 @@ void DtoSetArrayToNull(DValue *v) {
   IF_LOG Logger::println("DtoSetArrayToNull");
   LOG_SCOPE;
 
-  DtoStore(LLConstant::getNullValue(DtoType(v->type)), DtoLVal(v));
+  DtoStore(LLConstant::getNullValue(DtoType(v->type)), DtoLVal(v),
+           DtoLValAlignment(v));
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -305,10 +306,12 @@ void DtoArrayAssign(Loc loc, DValue *lhs, DValue *rhs, EXP op,
 static void DtoSetArray(DValue *array, DValue *rhs) {
   IF_LOG Logger::println("SetArray");
   LLValue *arr = DtoLVal(array);
+  const unsigned alignment = DtoLValAlignment(array);
   LLType *s = DtoType(array->type);
   assert(s);
-  DtoStore(DtoArrayLen(rhs), DtoGEP(s, arr, 0u, 0));
-  DtoStore(DtoArrayPtr(rhs), DtoGEP(s, arr, 0, 1));
+  DtoStore(DtoArrayLen(rhs), DtoGEP(s, arr, 0u, 0), alignment);
+  DtoStore(DtoArrayPtr(rhs), DtoGEP(s, arr, 0, 1),
+           llvm::MinAlign(alignment, getPointerSize()));
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -584,7 +587,7 @@ void initializeArrayLiteral(IRState *p, ArrayLiteralExp *ale,
     // optimizer can still decide to promote the memcpy intrinsic, so
     // the cutoff merely affects compilation speed.
     if (elemCount <= 4) {
-      DtoStore(constarr, dstMem);
+      gIR->ir->CreateAlignedStore(constarr, dstMem, llvm::Align(dstAlign));
     } else {
       auto gvar = new llvm::GlobalVariable(gIR->module, constarr->getType(),
                                            true, LLGlobalValue::InternalLinkage,
@@ -860,7 +863,8 @@ LLValue *DtoArrayLen(DValue *v) {
     }
     if (v->isLVal()) {
       return DtoLoad(DtoSize_t(),
-                     DtoGEP(DtoType(v->type), DtoLVal(v), 0u, 0), ".len");
+                     DtoGEP(DtoType(v->type), DtoLVal(v), 0u, 0),
+                     DtoLValAlignment(v), ".len");
     }
     auto slice = v->isSlice();
     assert(slice);
@@ -887,7 +891,10 @@ LLValue *DtoArrayPtr(DValue *v) {
     if (v->isNull()) {
       ptr = getNullPtr();
     } else if (v->isLVal()) {
-      ptr = DtoLoad(getOpaquePtrType(), DtoGEP(DtoType(v->type), DtoLVal(v), 0, 1), ".ptr");
+      ptr = DtoLoad(getOpaquePtrType(),
+                    DtoGEP(DtoType(v->type), DtoLVal(v), 0, 1),
+                    llvm::MinAlign(DtoLValAlignment(v), getPointerSize()),
+                    ".ptr");
     } else {
       auto slice = v->isSlice();
       assert(slice);

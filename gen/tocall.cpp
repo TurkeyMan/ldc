@@ -889,7 +889,9 @@ static LLValue *DtoCallableValue(DValue *fn) {
       LLValue *dg = DtoLVal(fn);
       llvm::StructType *st = isaStruct(DtoType(fn->type));
       LLValue *funcptr = DtoGEP(st, dg, 0, 1);
-      return DtoLoad(st->getElementType(1), funcptr, ".funcptr");
+      return DtoLoad(st->getElementType(1), funcptr,
+                     llvm::MinAlign(DtoLValAlignment(fn), getPointerSize()),
+                     ".funcptr");
     }
     LLValue *dg = DtoRVal(fn);
     assert(isaStruct(dg));

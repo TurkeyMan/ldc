@@ -153,7 +153,8 @@ LLValue *DtoUnpaddedStruct(Type *dty, LLValue *v, unsigned alignment) {
           DtoUnpaddedStruct(fields[i]->type, DtoLVal(field), field->alignment);
     } else {
       assert(!fields[i]->isBitFieldDeclaration());
-      fieldval = DtoLoad(DtoType(fields[i]->type), DtoLVal(field));
+      fieldval = DtoLoad(DtoType(fields[i]->type), DtoLVal(field),
+                         field->alignment);
     }
     newval = DtoInsertValue(newval, fieldval, i);
   }
@@ -176,7 +177,7 @@ void DtoPaddedStruct(Type *dty, LLValue *v, LLValue *lval,
                       field->alignment);
     } else {
       assert(!fields[i]->isBitFieldDeclaration());
-      DtoStoreZextI8(fieldval, DtoLVal(field));
+      DtoStoreZextI8(fieldval, DtoLVal(field), field->alignment);
     }
   }
 }
