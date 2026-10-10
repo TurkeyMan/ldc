@@ -34,7 +34,8 @@ llvm::Constant *DtoComplexShuffleMask(unsigned a, unsigned b);
 
 DValue *DtoComplex(Loc loc, Type *to, DValue *val);
 
-void DtoComplexSet(llvm::Type*, llvm::Value *c, llvm::Value *re, llvm::Value *im);
+void DtoComplexSet(llvm::Type *ty, llvm::Value *c, unsigned alignment,
+                   llvm::Value *re, llvm::Value *im);
 
 void DtoGetComplexParts(Loc loc, Type *to, DValue *c, DValue *&re, DValue *&im);
 void DtoGetComplexParts(Loc loc, Type *to, DValue *c, llvm::Value *&re,

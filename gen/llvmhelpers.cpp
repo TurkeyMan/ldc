@@ -389,7 +389,7 @@ void DtoAssign(Loc loc, DValue *lhs, DValue *rhs, EXP op,
   }
 
   if (t->ty == TY::Tbool) {
-    DtoStoreZextI8(DtoRVal(rhs), DtoLVal(lhs));
+    DtoStoreZextI8(DtoRVal(rhs), DtoLVal(lhs), DtoLValAlignment(lhs));
   } else if (t->ty == TY::Tstruct) {
     // don't copy anything to empty structs
     if (static_cast<TypeStruct *>(t)->sym->fields.length > 0) {
@@ -412,7 +412,7 @@ void DtoAssign(Loc loc, DValue *lhs, DValue *rhs, EXP op,
       Logger::cout() << "lhs: " << *l << '\n';
       Logger::cout() << "rhs: " << *r << '\n';
     }
-    DtoStore(r, l);
+    DtoStore(r, l, DtoLValAlignment(lhs));
   } else if (t->ty == TY::Tclass) {
     assert(rhs->type->toBasetype()->ty == TY::Tclass);
     LLValue *l = DtoLVal(lhs);
@@ -421,11 +421,11 @@ void DtoAssign(Loc loc, DValue *lhs, DValue *rhs, EXP op,
       Logger::cout() << "l : " << *l << '\n';
       Logger::cout() << "r : " << *r << '\n';
     }
-    DtoStore(r, l);
+    DtoStore(r, l, DtoLValAlignment(lhs));
   } else if (isComplex(t)) {
     LLValue *dst = DtoLVal(lhs);
     LLValue *src = DtoRVal(DtoCast(loc, rhs, lhs->type));
-    DtoStore(src, dst);
+    DtoStore(src, dst, DtoLValAlignment(lhs));
   } else {
     LLValue *l = DtoLVal(lhs);
     LLValue *r = DtoRVal(rhs);
@@ -451,7 +451,7 @@ void DtoAssign(Loc loc, DValue *lhs, DValue *rhs, EXP op,
       assert(r->getType() == lit);
 #endif
     }
-    gIR->ir->CreateStore(r, l);
+    gIR->ir->CreateAlignedStore(r, l, llvm::Align(DtoLValAlignment(lhs)));
   }
 }
 

@@ -109,9 +109,12 @@ DValue *DtoComplex(Loc loc, Type *to, DValue *val) {
 
 ////////////////////////////////////////////////////////////////////////////////
 
-void DtoComplexSet(LLType* ty, LLValue *c, LLValue *re, LLValue *im) {
-  DtoStore(re, DtoGEP(ty, c, 0u, 0));
-  DtoStore(im, DtoGEP(ty, c, 0, 1));
+void DtoComplexSet(LLType *ty, LLValue *c, unsigned alignment, LLValue *re,
+                   LLValue *im) {
+  const uint64_t imOffset =
+      gDataLayout->getStructLayout(isaStruct(ty))->getElementOffset(1);
+  DtoStore(re, DtoGEP(ty, c, 0u, 0), alignment);
+  DtoStore(im, DtoGEP(ty, c, 0, 1), llvm::MinAlign(alignment, imOffset));
 }
 
 ////////////////////////////////////////////////////////////////////////////////

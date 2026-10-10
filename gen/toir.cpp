@@ -165,7 +165,8 @@ static void write_struct_literal(Loc loc, LLValue *mem, unsigned memAlign,
 
       IF_LOG Logger::cout() << "merged IR value: " << *val << '\n';
       // TODO: byte-swap val for big-endian targets?
-      gIR->ir->CreateAlignedStore(val, DtoLVal(ptr), llvm::MaybeAlign(1));
+      gIR->ir->CreateAlignedStore(val, DtoLVal(ptr),
+                                  llvm::MaybeAlign(ptr->alignment));
       offset += group.sizeInBytes;
 
       i += group.bitFields.size() - 1; // skip the other bit fields of the group
@@ -1072,7 +1073,8 @@ public:
 
       // special case for bit fields (no real lvalues), and address spaced pointers
       if (auto bf = vd->isBitFieldDeclaration()) {
-        result = new DBitFieldLValue(e->type, DtoLVal(ptr), bf);
+        result =
+            new DBitFieldLValue(e->type, DtoLVal(ptr), ptr->alignment, bf);
       } else if (auto d = ptr->isDDcomputeLVal()) {
         LLType *ptrty = nullptr;
         if (llvm::PointerType *p = isaPointer(d->lltype)) {
@@ -1517,9 +1519,10 @@ public:
 
     DValue *const dv = toElem(e->e1);
     LLValue *const lval = DtoLVal(dv);
+    const unsigned alignment = DtoLValAlignment(dv);
     toElem(e->e2);
 
-    LLValue *val = DtoLoad(DtoType(dv->type), lval);
+    LLValue *val = DtoLoad(DtoType(dv->type), lval, alignment);
     LLValue *post = nullptr;
 
     Type *e1type = e->e1->type->toBasetype();
@@ -1549,7 +1552,7 @@ public:
       } else if (e->op == EXP::minusMinus) {
         re = llvm::BinaryOperator::CreateFSub(re, one, "", p->scopebb());
       }
-      DtoComplexSet(DtoType(dv->type), lval, re, im);
+      DtoComplexSet(DtoType(dv->type), lval, alignment, re, im);
     } else if (isFloating(e1type)) {
       assert(isFloating(e2type));
       LLValue *one = DtoConstFP(e1type, ldouble(1.0));
@@ -1565,7 +1568,7 @@ public:
     // The real part of the complex number has already been updated, skip the
     // store
     if (!isComplex(e1type)) {
-      DtoStore(post, lval);
+      DtoStore(post, lval, alignment);
     }
     result = new DImValue(e->type, val);
   }
@@ -1751,8 +1754,8 @@ public:
         DtoDeleteClass(e->loc, dval); // sets dval to null
       } else if (dval->isLVal()) {
         LLValue *lval = DtoLVal(dval);
-        DtoStore(LLConstant::getNullValue(DtoType(dval->type)),
-                 lval);
+        DtoStore(LLConstant::getNullValue(DtoType(dval->type)), lval,
+                 DtoLValAlignment(dval));
       }
     }
     // dyn array
